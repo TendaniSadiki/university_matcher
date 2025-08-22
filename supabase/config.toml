@@ -1,0 +1,19 @@
+[api]
+port = 54321
+max_rows = 1000
+
+[auth]
+
+[db]
+port = 54322
+
+[functions]
+
+[studio]
+port = 54323
+
+[inbucket]
+port = 54324
+
+[storage]
+file_size_limit = 52428800
