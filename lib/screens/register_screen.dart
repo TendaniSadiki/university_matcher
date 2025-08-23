@@ -243,14 +243,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text("Already have an account?"),
-                            TextButton(
-                              onPressed: _navigateToLogin,
-                              child: const Text(
-                                'Sign in here',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppStyles.lesothoBlue,
+                            Flexible(
+                              child: Text(
+                                "Already have an account?",
+                                softWrap: true,
+                                overflow: TextOverflow.visible,
+                              ),
+                            ),
+                            Flexible(
+                              child: TextButton(
+                                onPressed: _navigateToLogin,
+                                child: const Text(
+                                  'Sign in here',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppStyles.lesothoBlue,
+                                  ),
                                 ),
                               ),
                             ),
