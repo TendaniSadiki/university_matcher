@@ -1,45 +1,35 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 import 'input_screen.dart';
 import 'register_screen.dart';
 import '../widgets/error_dialog.dart';
 import '../constants/app_styles.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
-  bool _isLoading = false;
   bool _obscurePassword = true;
 
   void _signIn() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
       
       try {
-        final response = await _authService.signInWithEmailAndPassword(email, password);
+        await ref.read(authNotifierProvider.notifier).signIn(email, password);
         
-        setState(() => _isLoading = false);
-        
-        if (response != null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const InputScreen()),
-          );
-        }
+        // Navigation is handled by the auth state changes in main.dart
+        // The app will automatically navigate to InputScreen when authenticated
       } catch (e) {
-        setState(() => _isLoading = false);
         ErrorDialog.show(
           context: context,
           title: 'Sign In Failed',
@@ -181,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 24),
                         
                         // Sign In Button
-                        _isLoading
+                        ref.watch(authNotifierProvider).status == AuthStatus.loading
                             ? const CircularProgressIndicator()
                             : SizedBox(
                                 width: double.infinity,

@@ -1,54 +1,46 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import '../widgets/error_dialog.dart';
 import '../constants/app_styles.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final AuthService _authService = AuthService();
-  bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
   void _register() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
       
       try {
-        final response = await _authService.registerWithEmailAndPassword(email, password);
+        await ref.read(authNotifierProvider.notifier).signUp(email, password);
         
-        setState(() => _isLoading = false);
-        
-        if (response != null) {
-          // Supabase automatically sends verification email on signup
-          ErrorDialog.show(
-            context: context,
-            title: 'Registration Successful',
-            message: 'Verification email sent. Please check your inbox to verify your email address.',
-            onConfirm: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
-          );
-        }
+        // Registration successful - show verification message
+        ErrorDialog.show(
+          context: context,
+          title: 'Registration Successful',
+          message: 'Verification email sent. Please check your inbox to verify your email address.',
+          onConfirm: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+          },
+        );
       } catch (e) {
-        setState(() => _isLoading = false);
         ErrorDialog.show(
           context: context,
           title: 'Registration Failed',
@@ -221,7 +213,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(height: 24),
                         
                         // Register Button
-                        _isLoading
+                        ref.watch(authNotifierProvider).status == AuthStatus.loading
                             ? const CircularProgressIndicator()
                             : SizedBox(
                                 width: double.infinity,

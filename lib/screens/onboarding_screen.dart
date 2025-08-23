@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'login_screen.dart';
 import '../constants/app_styles.dart';
+import '../services/local_storage_service.dart';
+import '../providers/auth_provider.dart';
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  late final LocalStorageService _localStorage;
+
+  @override
+  void initState() {
+    super.initState();
+    _localStorage = ref.read(localStorageProvider);
+  }
 
   final List<OnboardingPage> _onboardingPages = [
     OnboardingPage(
@@ -45,7 +55,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  void _navigateToLogin() {
+  void _navigateToLogin() async {
+    // Mark first launch as completed
+    await _localStorage.setFirstLaunch(false);
+    
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const LoginScreen()),

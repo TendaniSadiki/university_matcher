@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/learner_profile.dart';
 
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -92,5 +93,40 @@ class AuthService {
   Future<bool> checkEmailVerification() async {
     await _supabase.auth.refreshSession();
     return _supabase.auth.currentUser?.emailConfirmedAt != null;
+  }
+
+  // Get learner profile from database
+  Future<LearnerProfile?> getLearnerProfile() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return null;
+
+      final response = await _supabase
+          .from('learners')
+          .select()
+          .eq('user_id', user.id)
+          .single();
+
+      return LearnerProfile.fromMap(response);
+    } catch (e) {
+      print('Error fetching learner profile: $e');
+      return null;
+    }
+  }
+
+  // Update learner profile in database
+  Future<void> updateLearnerProfile(LearnerProfile profile) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      await _supabase
+          .from('learners')
+          .update(profile.toMap())
+          .eq('user_id', user.id);
+    } catch (e) {
+      print('Error updating learner profile: $e');
+      throw Exception('Failed to update profile: $e');
+    }
   }
 }
