@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/university_program.dart';
 import '../services/matching_service.dart';
+import '../constants/app_styles.dart';
 
 class ResultsScreen extends StatefulWidget {
   final List<UniversityProgram> matchingPrograms;
@@ -63,8 +64,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Matching Programs'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: AppStyles.lesothoBlue,
+        foregroundColor: AppStyles.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -78,53 +79,57 @@ class _ResultsScreenState extends State<ResultsScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildFilterBar(),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: filteredPrograms.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No matching programs found with current filters.\nTry adjusting your filters or check your grades.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: AppStyles.lesothoGradient,
+        ),
+        child: Column(
+          children: [
+            _buildFilterBar(),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: filteredPrograms.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No matching programs found with current filters.\nTry adjusting your filters or check your grades.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: AppStyles.white70,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: filteredPrograms.length,
+                        itemBuilder: (context, index) {
+                          final program = filteredPrograms[index];
+                          return ProgramCard(program: program);
+                        },
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: filteredPrograms.length,
-                      itemBuilder: (context, index) {
-                        final program = filteredPrograms[index];
-                        return ProgramCard(program: program);
-                      },
-                    ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildFilterBar() {
     return Container(
-      padding: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[300]!),
-        ),
+        color: AppStyles.white,
+        borderRadius: AppStyles.borderRadiusBottom20,
+        boxShadow: AppStyles.cardShadow,
       ),
       child: Row(
         children: [
           Expanded(
             child: DropdownButtonFormField<String>(
               value: selectedUniversity,
-              decoration: const InputDecoration(
-                labelText: 'University',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
+              decoration: AppStyles.textInputDecoration('University'),
               items: [
                 const DropdownMenuItem(value: null, child: Text('All Universities')),
                 ...universities.map((uni) => DropdownMenuItem(value: uni, child: Text(uni))),
@@ -141,11 +146,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           Expanded(
             child: DropdownButtonFormField<String>(
               value: selectedFaculty,
-              decoration: const InputDecoration(
-                labelText: 'Faculty',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
+              decoration: AppStyles.textInputDecoration('Faculty'),
               items: [
                 const DropdownMenuItem(value: null, child: Text('All Faculties')),
                 ...faculties.map((fac) => DropdownMenuItem(value: fac, child: Text(fac))),
@@ -173,48 +174,62 @@ class ProgramCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
-      elevation: 2,
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppStyles.borderRadius16,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               program.name,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF003366),
-              ),
+              style: AppStyles.programNameTextStyle,
             ),
             const SizedBox(height: 8),
             Text(
               program.universityName,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Duration: ${program.duration}',
-              style: const TextStyle(fontSize: 14),
+              style: AppStyles.universityNameTextStyle,
             ),
             const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 16, color: AppStyles.grey600),
+                const SizedBox(width: 4),
+                Text(
+                  'Duration: ${program.duration}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppStyles.grey700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             const Text(
               'Subject Requirements:',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
+                color: AppStyles.lesothoBlue,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             ...program.requirements.map(
               (requirement) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: Text(
-                  '• ${requirement.subjectName}: Minimum ${requirement.minScore}',
-                  style: const TextStyle(fontSize: 14),
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, size: 16, color: AppStyles.lesothoGreen),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${requirement.subjectName}: Minimum ${requirement.minScore}',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

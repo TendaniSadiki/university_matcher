@@ -5,6 +5,7 @@ import 'services/auth_service.dart';
 import 'services/logging_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/input_screen.dart';
+import 'screens/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,16 +42,7 @@ class _UniversityMatcherAppState extends State<UniversityMatcherApp> {
         ),
         useMaterial3: true,
       ),
-      home: StreamBuilder(
-        stream: _authService.userStream,
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            return const InputScreen();
-          } else {
-            return const LoginScreen();
-          }
-        },
-      ),
+      home: const OnboardingScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

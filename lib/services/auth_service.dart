@@ -10,10 +10,35 @@ class AuthService {
         email: email,
         password: password,
       );
+      
+      // Check if email is verified after successful sign-in
+      if (response.user?.emailConfirmedAt == null) {
+        await _supabase.auth.signOut(); // Sign out since email is not verified
+        throw Exception('Please verify your email address before signing in. Check your inbox for the verification link.');
+      }
+      
       return response;
     } catch (e) {
       print('Error signing in: $e');
-      return null;
+      // Handle specific errors
+      if (e.toString().contains('Invalid login credentials')) {
+        throw Exception('Invalid email or password. Please try again.');
+      } else if (e.toString().contains('verify your email')) {
+        rethrow; // Re-throw the email verification error
+      }
+      throw Exception('Failed to sign in. Please try again.');
+    }
+  }
+
+  // Check if user exists by email (direct Supabase auth check)
+  Future<bool> checkUserExists(String email) async {
+    try {
+      // Use Supabase auth admin API to check if user exists
+      final users = await _supabase.auth.admin.listUsers();
+      return users.any((user) => user.email == email);
+    } catch (e) {
+      print('Error checking user existence: $e');
+      return false;
     }
   }
 
@@ -27,7 +52,11 @@ class AuthService {
       return response;
     } catch (e) {
       print('Error registering: $e');
-      return null;
+      // Handle specific errors
+      if (e.toString().contains('User already registered')) {
+        throw Exception('Email is already in use. Please use a different email or sign in.');
+      }
+      throw Exception('Failed to register. Please try again.');
     }
   }
 

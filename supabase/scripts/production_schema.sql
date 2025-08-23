@@ -1,5 +1,5 @@
--- Lesotho Admissions Smart Calculator - Database Schema
--- Designed for LGCSE/ASC grading system and Lesotho universities
+-- Lesotho University Matcher - Production Database Schema
+-- This single file contains the complete production-ready database setup
 
 -- Enable UUID extension for user IDs
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -102,31 +102,6 @@ CREATE TABLE matches (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 11. Sessions table for user interactions
-CREATE TABLE sessions (
-    id SERIAL PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    anon_id TEXT,
-    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    last_active_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    device TEXT,
-    app_version TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 12. Events table for analytics
-CREATE TABLE events (
-    id SERIAL PRIMARY KEY,
-    session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    anon_id TEXT,
-    event_type TEXT NOT NULL,
-    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    screen TEXT,
-    context_json JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
 -- Insert LGCSE grade scale
 INSERT INTO grade_scale (curriculum, grade_label, points) VALUES
 ('LGCSE', 'A*', 8),
@@ -139,7 +114,7 @@ INSERT INTO grade_scale (curriculum, grade_label, points) VALUES
 ('LGCSE', 'G', 1),
 ('LGCSE', 'U', 0);
 
--- Insert ASC grade scale (example - adjust based on actual ASC grading)
+-- Insert ASC grade scale
 INSERT INTO grade_scale (curriculum, grade_label, points) VALUES
 ('ASC', '1', 7),
 ('ASC', '2', 6),
@@ -242,7 +217,7 @@ INSERT INTO courses (faculty_id, name, code, nqf_level, duration_years, notes) V
 (6, 'BA Public Relations', 'PR001', 6, 3, 'Bachelor of Arts in Public Relations'),
 (6, 'BA Branding and Advertising', 'BA001', 6, 3, 'Bachelor of Arts in Branding and Advertising');
 
--- Insert course requirements (example rules in JSON format)
+-- Insert course requirements
 INSERT INTO course_requirements (course_id, rule_json) VALUES
 -- NUL Computer Science
 (1, '{
@@ -316,8 +291,6 @@ INSERT INTO course_requirements (course_id, rule_json) VALUES
 ALTER TABLE learners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE learner_subjects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
 -- Policies for learners table
 CREATE POLICY "Users can read own learner data" ON learners FOR SELECT USING (auth.uid() = user_id);
@@ -326,20 +299,13 @@ CREATE POLICY "Users can update own learner data" ON learners FOR UPDATE USING (
 
 -- Policies for learner_subjects table
 CREATE POLICY "Users can read own learner subjects" ON learner_subjects FOR SELECT USING (learner_id IN (SELECT id FROM learners WHERE user_id = auth.uid()));
-CREATE POLICY "Users can manage own learner subjects" ON learner_subjects FOR ALL USING (learner_id IN (SELECT id FROM learners WHERE user_id = auth.uid()));
+CREATE POLICY "Users can insert own learner subjects" ON learner_subjects FOR INSERT WITH CHECK (learner_id IN (SELECT id FROM learners WHERE user_id = auth.uid()));
+CREATE POLICY "Users can update own learner subjects" ON learner_subjects FOR UPDATE USING (learner_id IN (SELECT id FROM learners WHERE user_id = auth.uid()));
+CREATE POLICY "Users can delete own learner subjects" ON learner_subjects FOR DELETE USING (learner_id IN (SELECT id FROM learners WHERE user_id = auth.uid()));
 
 -- Policies for matches table
 CREATE POLICY "Users can read own matches" ON matches FOR SELECT USING (learner_id IN (SELECT id FROM learners WHERE user_id = auth.uid()));
 CREATE POLICY "System can insert matches" ON matches FOR INSERT WITH CHECK (true);
-
--- Policies for sessions table
-CREATE POLICY "Users can read own sessions" ON sessions FOR SELECT USING (user_id = auth.uid() OR anon_id IS NOT NULL);
-CREATE POLICY "Anyone can insert sessions" ON sessions FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update own sessions" ON sessions FOR UPDATE USING (user_id = auth.uid());
-
--- Policies for events table
-CREATE POLICY "Users can read own events" ON events FOR SELECT USING (user_id = auth.uid() OR session_id IN (SELECT id FROM sessions WHERE anon_id IS NOT NULL));
-CREATE POLICY "Anyone can insert events" ON events FOR INSERT WITH CHECK (true);
 
 -- Public read access to reference data
 ALTER TABLE grade_scale ENABLE ROW LEVEL SECURITY;
@@ -361,8 +327,185 @@ CREATE POLICY "Public can read course_requirements" ON course_requirements FOR S
 -- Create indexes for performance
 CREATE INDEX idx_learner_subjects_learner_id ON learner_subjects(learner_id);
 CREATE INDEX idx_matches_learner_id ON matches(learner_id);
-CREATE INDEX idx_events_session_id ON events(session_id);
-CREATE INDEX idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX idx_sessions_anon_id ON sessions(anon_id);
 
-SELECT 'Lesotho MVP database schema created successfully with sample data!' AS result;
+-- Match programs function - Updated to match Flutter app expectations
+CREATE OR REPLACE FUNCTION match_programs(learner_id UUID)
+RETURNS TABLE (
+    id TEXT,
+    name TEXT,
+    faculty_id TEXT,
+    faculty_name TEXT,
+    university_id TEXT,
+    university_name TEXT,
+    code TEXT,
+    duration TEXT,
+    description TEXT,
+    total_aps_required INTEGER,
+    requirements JSONB,
+    status TEXT,
+    score INTEGER,
+    explanation TEXT
+) AS $$
+DECLARE
+    learner_curriculum TEXT;
+    total_points INTEGER := 0;
+    subject_count INTEGER := 0;
+    subject_record RECORD;
+    requirement_record RECORD;
+    course_record RECORD;
+    meets_requirements BOOLEAN;
+    subject_grade_label TEXT;
+    subject_points INTEGER;
+    requirement_subject TEXT;
+    requirement_grade TEXT;
+    req_json JSONB;
+    subject_id_val INTEGER;
+    min_score_val INTEGER;
+BEGIN
+    -- Get learner's curriculum
+    SELECT grade INTO learner_curriculum FROM learners WHERE learners.id = learner_id;
+    IF learner_curriculum IS NULL THEN
+        RAISE EXCEPTION 'Learner curriculum not found';
+    END IF;
+
+    -- Calculate total points for all subjects
+    FOR subject_record IN
+        SELECT ls.subject_id, ls.grade_label, s.name as subject_name
+        FROM learner_subjects ls
+        JOIN subjects s ON ls.subject_id = s.id
+        WHERE ls.learner_id = match_programs.learner_id
+    LOOP
+        -- Get points for this grade in the learner's curriculum
+        SELECT points INTO subject_points
+        FROM grade_scale
+        WHERE curriculum = learner_curriculum AND grade_label = subject_record.grade_label;
+        
+        IF subject_points IS NOT NULL THEN
+            total_points := total_points + subject_points;
+            subject_count := subject_count + 1;
+        END IF;
+    END LOOP;
+
+    -- For each course, check requirements and get full details
+    FOR course_record IN
+        SELECT
+            c.id as course_id,
+            c.name as course_name,
+            c.code,
+            c.duration_years,
+            c.notes,
+            f.id as faculty_id,
+            f.name as faculty_name,
+            u.id as university_id,
+            u.name as university_name,
+            cr.rule_json,
+            (cr.rule_json->>'min_aggregate_points')::INTEGER as min_aggregate_points
+        FROM courses c
+        JOIN faculties f ON c.faculty_id = f.id
+        JOIN universities u ON f.university_id = u.id
+        JOIN course_requirements cr ON c.id = cr.course_id
+    LOOP
+        meets_requirements := true;
+        explanation := '';
+        req_json := '[]'::jsonb;
+
+        -- Check minimum aggregate points
+        IF course_record.min_aggregate_points > total_points THEN
+            meets_requirements := false;
+            explanation := explanation || 'Insufficient aggregate points. ';
+        END IF;
+
+        -- Check required subjects and build requirements JSON
+        IF course_record.rule_json ? 'required_subjects' THEN
+            FOR requirement_record IN
+                SELECT * FROM json_array_elements(course_record.rule_json->'required_subjects')
+            LOOP
+                requirement_subject := (requirement_record.value)->>'subject';
+                requirement_grade := (requirement_record.value)->>'min_grade';
+                
+                -- Get subject ID
+                SELECT subjects.id INTO subject_id_val FROM subjects WHERE subjects.name = requirement_subject;
+                IF subject_id_val IS NULL THEN
+                    SELECT subject_aliases.subject_id INTO subject_id_val FROM subject_aliases WHERE subject_aliases.alias = requirement_subject;
+                END IF;
+                
+                -- Get min score points for the required grade
+                SELECT points INTO min_score_val
+                FROM grade_scale
+                WHERE curriculum = learner_curriculum AND grade_label = requirement_grade;
+                
+                -- Add to requirements JSON as an array element
+                req_json := req_json || jsonb_build_array(jsonb_build_object(
+                    'subject_id', subject_id_val::text,
+                    'subject_name', requirement_subject,
+                    'min_score', min_score_val,
+                    'explanation', 'Minimum grade ' || requirement_grade
+                ));
+                
+                -- Check if learner has this subject with required grade
+                SELECT ls.grade_label INTO subject_grade_label
+                FROM learner_subjects ls
+                JOIN subjects s ON ls.subject_id = s.id
+                LEFT JOIN subject_aliases sa ON s.id = sa.subject_id
+                WHERE ls.learner_id = match_programs.learner_id
+                AND (s.name = requirement_subject OR sa.alias = requirement_subject);
+
+                IF subject_grade_label IS NULL THEN
+                    meets_requirements := false;
+                    explanation := explanation || 'Missing required subject: ' || requirement_subject || '. ';
+                ELSE
+                    -- Check if grade meets requirement
+                    IF (SELECT points FROM grade_scale WHERE curriculum = learner_curriculum AND grade_label = subject_grade_label) <
+                       min_score_val THEN
+                        meets_requirements := false;
+                        explanation := explanation || 'Insufficient grade in ' || requirement_subject || '. ';
+                    END IF;
+                END IF;
+            END LOOP;
+        END IF;
+
+        -- Determine status
+        IF meets_requirements THEN
+            status := 'Eligible';
+        ELSIF total_points >= course_record.min_aggregate_points - 5 THEN
+            status := 'Borderline';
+            explanation := 'Close to meeting requirements. ' || explanation;
+        ELSE
+            status := 'Not eligible';
+        END IF;
+
+        -- Return the result with all required fields
+        id := course_record.course_id::text;
+        name := course_record.course_name;
+        faculty_id := course_record.faculty_id::text;
+        faculty_name := course_record.faculty_name;
+        university_id := course_record.university_id::text;
+        university_name := course_record.university_name;
+        code := course_record.code;
+        duration := course_record.duration_years::text || ' years';
+        description := course_record.notes;
+        total_aps_required := course_record.min_aggregate_points;
+        requirements := req_json;
+        score := total_points;
+        
+        RETURN NEXT;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to automatically create learner records when users sign up
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.learners (user_id, full_name, grade)
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email), 'LGCSE');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger that fires after a user is inserted in auth.users
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+SELECT 'Production database schema created successfully!' AS result;
