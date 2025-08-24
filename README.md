@@ -34,26 +34,43 @@ A Flutter-based mobile application that matches Lesotho learners with university
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Get your project URL and anon key from Settings > API
-3. Create a `.env` file in the `assets` directory:
+
+#### Install Supabase CLI (Optional for Local Development):
+If you plan to use Supabase CLI for local development or database management, install it via npm:
+
+```bash
+npm install -g supabase
+```
+
+#### For Local Development:
+Create a `.env` file in the `assets` directory:
 
 ```bash
 SUPABASE_URL=your_project_url
 SUPABASE_ANON_KEY=your_anon_key
 ```
 
-**Important**: The `.env` file contains sensitive keys and should not be committed to GitHub. Ensure it is added to `.gitignore`:
+**Important**: The `.env` file contains sensitive keys and should not be committed to GitHub. Ensure it is added to `.gitignore`.
 
-```bash
-# Add to .gitignore
-assets/.env
-```
+#### For GitHub Actions (CI/CD):
+Set up secrets in your GitHub repository:
+
+1. Go to your repository Settings → Secrets and variables → Actions
+2. Click "New repository secret"
+3. Add these secrets:
+   - Name: `SUPABASE_URL`, Secret: `your_project_url`
+   - Name: `SUPABASE_ANON_KEY`, Secret: `your_anon_key`
+
+These secrets will be available to GitHub Actions workflows without exposing them in code.
 
 ### 2. Database Setup
 
 Run the production database schema:
 
 1. Navigate to Supabase SQL Editor
-2. Execute the complete schema: `supabase/scripts/production_schema.sql`
+2. Execute the complete schema:  `supabase/scripts/001production_schema.sql`
+                                 `supabase/scripts/002populate_data.sql`
+                                 `supabase/scripts/003fix_match_function.sql`
 3. Verify all tables and functions are created successfully
 
 ### 3. Flutter App Setup
@@ -179,10 +196,10 @@ This project is developed for educational purposes as part of a university admis
 
 ## 🔄 Version History
 
-- **v1.0** (August 2024): MVP launch with authentication, profile management, and matching engine
+- **v1.0** (August 2025): MVP launch with authentication, profile management, and matching engine
 - **v0.9**: Enhanced auth state management and theme consistency
 - **v0.8**: Fixed profile update functionality and registration validation
 
 ---
 
-*Built for Lesotho Education - August 2024*
+*Built for Lesotho Education - August 2025*
