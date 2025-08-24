@@ -37,12 +37,20 @@ dependencies:
 
   # Supabase dependencies for backend integration
   supabase_flutter: ^2.0.0
-  flutter_dotenv: ^5.1.0
+  flutter_dotenv: ^6.0.0
   http: ^1.1.0
-  
   # Add required dependencies for null safety and async operations
-  provider: ^6.0.5
   equatable: ^2.0.5
+
+  # Logging package for better debug and error logging
+  logging: ^1.3.0
+
+  # State management with Riverpod
+  flutter_riverpod: ^2.6.1
+
+  # Local storage for persistence
+  shared_preferences: ^2.2.2
+
 
 dev_dependencies:
   flutter_test:

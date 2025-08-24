@@ -4,6 +4,7 @@ import '../models/student_scores.dart';
 import '../services/matching_service.dart';
 import '../services/auth_service.dart';
 import 'results_screen.dart';
+import '../constants/app_styles.dart';
 
 class InputScreen extends StatefulWidget {
   const InputScreen({super.key});
@@ -17,16 +18,18 @@ class _InputScreenState extends State<InputScreen> {
   final List<String> _lgcseSubjects = [
     'Mathematics',
     'English',
-    'Science',
-    'Sesotho',
-    'History',
-    'Geography',
-    'Accounting',
-    'Business Studies',
-    'Economics',
     'Physics',
     'Chemistry',
-    'Biology'
+    'Biology',
+    'History',
+    'Geography',
+    'Economics',
+    'Accounting',
+    'Information Technology',
+    'Art',
+    'Sesotho',
+    'Food and Nutrition',
+    'Physical Science'
   ];
   final MatchingService _matchingService = MatchingService();
   final AuthService _authService = AuthService();
@@ -83,91 +86,118 @@ class _InputScreenState extends State<InputScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    try {
+      await _authService.signOut();
+      // Navigate to root which should be the login screen
+      Navigator.pushReplacementNamed(context, '/');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error logging out: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lesotho University Matcher'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: AppStyles.lesothoBlue,
+        foregroundColor: AppStyles.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter your LGCSE Grades',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Select the grade you achieved for each subject. Leave blank if you did not take the subject.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _lgcseSubjects.length,
-                itemBuilder: (context, index) {
-                  final subject = _lgcseSubjects[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            subject,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 1,
-                          child: TextFormField(
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              hintText: 'Score',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                if (value.isEmpty) {
-                                  _subjectScores[subject] = null;
-                                } else {
-                                  _subjectScores[subject] = int.tryParse(value);
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: AppStyles.lesothoGradient,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter your LGCSE Grades',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppStyles.white,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _matchPrograms,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text(
-                        'Find Matching Programs',
-                        style: TextStyle(fontSize: 16),
+              const SizedBox(height: 8),
+              const Text(
+                'Select the grade you achieved for each subject. Leave blank if you did not take the subject.',
+                style: TextStyle(color: AppStyles.white70),
+              ),
+              const SizedBox(height: 24),
+              Expanded(
+                child: Container(
+                  decoration: AppStyles.whiteCardDecoration,
+                  padding: const EdgeInsets.all(16.0),
+                  child: ListView.builder(
+                    itemCount: _lgcseSubjects.length,
+                    itemBuilder: (context, index) {
+                      final subject = _lgcseSubjects[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                subject,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 1,
+                              child: TextFormField(
+                                keyboardType: TextInputType.number,
+                                decoration: AppStyles.textInputDecoration('Score'),
+                                onChanged: (value) {
+                                  setState(() {
+                                    if (value.isEmpty) {
+                                      _subjectScores[subject] = null;
+                                    } else {
+                                      _subjectScores[subject] = int.tryParse(value);
+                                    }
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _matchPrograms,
+                        style: AppStyles.secondaryButtonStyle(context),
+                        child: const Text(
+                          'Find Matching Programs',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-          ],
+            ],
+          ),
         ),
       ),
     );
