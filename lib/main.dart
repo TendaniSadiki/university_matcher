@@ -57,10 +57,8 @@ class _UniversityMatcherAppState extends ConsumerState<UniversityMatcherApp> {
   @override
   void initState() {
     super.initState();
-    // Initialize auth state when app starts
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(authNotifierProvider.notifier).initialize();
-    });
+    // Initialize auth state when app starts - this is now handled in AuthNotifier constructor
+    print('UniversityMatcherApp initState called');
   }
 
   @override

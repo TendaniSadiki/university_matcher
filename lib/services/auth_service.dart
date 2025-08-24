@@ -39,13 +39,31 @@ class AuthService {
       return users.any((user) => user.email == email);
     } catch (e) {
       print('Error checking user existence: $e');
-      return false;
+      // Fallback: try to sign in with dummy password to check if user exists
+      try {
+        await _supabase.auth.signInWithPassword(
+          email: email,
+          password: 'dummy_password_12345', // This will fail if user exists but wrong password
+        );
+        return true; // This line should never be reached if password is wrong
+      } catch (signInError) {
+        if (signInError.toString().contains('Invalid login credentials')) {
+          return true; // User exists but wrong password
+        }
+        return false; // User doesn't exist or other error
+      }
     }
   }
 
-  // Register with email and password
+  // Register with email and password with better validation
   Future<AuthResponse?> registerWithEmailAndPassword(String email, String password) async {
     try {
+      // First check if user already exists using a more reliable method
+      final userExists = await checkUserExists(email);
+      if (userExists) {
+        throw Exception('Email is already in use. Please use a different email or sign in.');
+      }
+
       AuthResponse response = await _supabase.auth.signUp(
         email: email,
         password: password,
@@ -54,7 +72,9 @@ class AuthService {
     } catch (e) {
       print('Error registering: $e');
       // Handle specific errors
-      if (e.toString().contains('User already registered')) {
+      if (e.toString().contains('Email is already in use')) {
+        rethrow; // Re-throw our custom exception
+      } else if (e.toString().contains('User already registered')) {
         throw Exception('Email is already in use. Please use a different email or sign in.');
       }
       throw Exception('Failed to register. Please try again.');
@@ -120,10 +140,24 @@ class AuthService {
       final user = _supabase.auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
-      await _supabase
+      // Create update data without the id field since we're updating by user_id
+      final updateData = {
+        'full_name': profile.fullName,
+        'school_name': profile.schoolName,
+        'grade': profile.grade,
+        'intake_year': profile.intakeYear,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      print('Updating learner profile for user: ${user.id}');
+      print('Update data: $updateData');
+
+      final response = await _supabase
           .from('learners')
-          .update(profile.toMap())
+          .update(updateData)
           .eq('user_id', user.id);
+
+      print('Profile update response: $response');
     } catch (e) {
       print('Error updating learner profile: $e');
       throw Exception('Failed to update profile: $e');

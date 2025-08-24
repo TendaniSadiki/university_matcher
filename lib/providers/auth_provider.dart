@@ -40,7 +40,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final LocalStorageService _localStorage;
   StreamSubscription<User?>? _userSubscription;
 
-  AuthNotifier(this._authService, this._localStorage) : super(AuthState());
+  AuthNotifier(this._authService, this._localStorage) : super(AuthState()) {
+    // Start listening to auth state changes immediately when the notifier is created
+    _userSubscription = _authService.userStream.listen((user) {
+      print('AuthNotifier: userStream event received: $user');
+      if (user != null) {
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          user: user,
+        );
+        print('AuthNotifier: userStream - authenticated with user: ${user.email}');
+        // Update local storage
+        _localStorage.setUserId(user.id);
+        _localStorage.setUserEmail(user.email ?? '');
+      } else {
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          user: null,
+        );
+        print('AuthNotifier: userStream - unauthenticated');
+        _localStorage.clearAuthData();
+      }
+    });
+
+    // Check initial user state
+    _checkInitialUser();
+  }
 
   @override
   void dispose() {
@@ -48,12 +73,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     super.dispose();
   }
 
-  Future<void> initialize() async {
+  Future<void> _checkInitialUser() async {
     state = state.copyWith(status: AuthStatus.loading);
-    print('AuthNotifier: initialize called, setting status to loading');
+    print('AuthNotifier: checking initial user state');
     
     try {
-      // Check current user immediately
       final currentUser = _authService.getCurrentUser();
       print('AuthNotifier: current user from authService: $currentUser');
       if (currentUser != null) {
@@ -69,34 +93,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(status: AuthStatus.unauthenticated);
         print('AuthNotifier: no user, setting state to unauthenticated');
       }
-
-      // Listen to auth state changes for real-time updates
-      _userSubscription = _authService.userStream.listen((user) {
-        print('AuthNotifier: userStream event received: $user');
-        if (user != null) {
-          state = state.copyWith(
-            status: AuthStatus.authenticated,
-            user: user,
-          );
-          print('AuthNotifier: userStream - authenticated with user: ${user.email}');
-          // Update local storage
-          _localStorage.setUserId(user.id);
-          _localStorage.setUserEmail(user.email ?? '');
-        } else {
-          state = state.copyWith(
-            status: AuthStatus.unauthenticated,
-            user: null,
-          );
-          print('AuthNotifier: userStream - unauthenticated');
-          _localStorage.clearAuthData();
-        }
-      });
     } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'Failed to initialize authentication: $e',
+        errorMessage: 'Failed to check initial user: $e',
       );
-      print('AuthNotifier: error during initialize: $e');
+      print('AuthNotifier: error during initial user check: $e');
     }
   }
 
